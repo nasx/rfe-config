@@ -1,10 +1,21 @@
-- name: Test Playbook
+- name: RHEL for Edge Configuration Playbook
   hosts: localhost
   tasks:
-    - name: Create Temporary File
+    - name: Create Sudoers File for edge User
       ansible.builtin.copy:
         content: "{{ file_content }}"
-        dest: /host/tmp/temporary_file
+        dest: /host/etc/sudoers.d/edge
       vars:
         file_content: |
-          Testing write to container host
+          edge ALL=(ALL) NOPASSWD: ALL
+
+    - name: Create OSTree Remote Repo
+      ansible.builtin.copy:
+        content: "{{ repo_content }}"
+        dest: /host/etc/ostree/remotes.d/rfe-baseline.conf
+      vars:
+        repo_content: |
+          [remote "rfe-baseline"]
+          url=http://rfe-baseline-latest-edge-rhel9.apps.alice.lab.uc2.io/repo
+          gpg-verify=false
+          sign-verify=false
