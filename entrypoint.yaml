@@ -1,0 +1,10 @@
+- name: Test Playbook
+  hosts: localhost
+  tasks:
+    - name: Create Temporary File
+      ansible.builtin.copy:
+        content: "{{ file_content }}"
+        dest: /host/tmp/temporary_file
+      vars:
+        file_content: |
+          Testing write to container host
