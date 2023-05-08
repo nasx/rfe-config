@@ -6,6 +6,11 @@
         content: "{{ ansible_facts }}"
         dest: /host/tmp/ansible_facts
 
+    - name: Debug hostvars
+      ansible.builtin.copy:
+        content: "{{ hostvars }}"
+        dest: /host/tmp/hostvars
+
     - name: Create Sudoers File for edge User
       ansible.builtin.copy:
         content: "{{ file_content }}"
