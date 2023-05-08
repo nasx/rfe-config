@@ -1,6 +1,11 @@
 - name: RHEL for Edge Configuration Playbook
   hosts: localhost
   tasks:
+    - name: Debug ansible_facts
+      ansible.builtin.copy:
+        content: "{{ ansible_facts }}"
+        dest: /host/tmp/ansible_facts
+
     - name: Create Sudoers File for edge User
       ansible.builtin.copy:
         content: "{{ file_content }}"
