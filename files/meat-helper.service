@@ -1,0 +1,29 @@
+[Unit]
+Description=Podman container meat-helper
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=on-failure
+RemainAfterExit=yes
+TimeoutStopSec=70
+ExecStartPre=/bin/rm -f %t/%n.ctr-id
+ExecStart=/usr/bin/podman run \
+        --pull=always \
+        --cidfile=%t/%n.ctr-id \
+        --cgroups=no-conmon \
+        --rm \
+        --sdnotify=conmon \
+        -d \
+        --replace \
+        --tls-verify=false \
+        --name meat-helper \
+        -p 8080:8080 \
+        quay.io/stauil/quarkus-meat-helper:1.0-SNAPSHOT
+ExecStop=/usr/bin/podman stop --ignore --cidfile=%t/%n.ctr-id
+ExecStopPost=/usr/bin/podman rm -f --ignore --cidfile=%t/%n.ctr-id
+Type=notify
+
+[Install]
+WantedBy=multi-user.target

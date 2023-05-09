@@ -1,16 +1,6 @@
-- name: RHEL for Edge Configuration Playbook
+- name: Bootstrap RFE Device via /host Mount
   hosts: localhost
   tasks:
-    - name: Debug ansible_facts
-      ansible.builtin.copy:
-        content: "{{ ansible_facts }}"
-        dest: /host/tmp/ansible_facts
-
-    - name: Debug hostvars
-      ansible.builtin.copy:
-        content: "{{ hostvars }}"
-        dest: /host/tmp/hostvars
-
     - name: Create Sudoers File for edge User
       ansible.builtin.copy:
         content: "{{ file_content }}"
@@ -29,3 +19,58 @@
           url=http://rfe-baseline-latest-edge-rhel9.apps.alice.lab.uc2.io/repo
           gpg-verify=false
           sign-verify=false
+
+    - name: Create Ephemeral SSH Keys
+      ansible.builtin.shell:
+        cmd: |
+          ssh-keygen -t rsa -b 2048 -f /tmp/ephemeral -N "" -C "ephemeral@localhost"
+
+    - name: Load SSH Public Key
+      ansible.builtin.set_fact:
+        ephemeral_public_key: "{{ lookup('ansible.builtin.file', '/tmp/ephemeral.pub') }}"
+
+    - name: Add Ephemeral Public Key to authorized_keys File
+      ansible.builtin.shell:
+        cmd: |
+          umask 066 && /bin/echo "{{ ephemeral_public_key }}" >> /host/home/edge/.ssh/authorized_keys
+
+    - name: Generate Dynamic Inventory for edge-device
+      ansible.builtin.add_host:
+        ansible_host: 127.0.0.1
+        ansible_ssh_private_key_file: /tmp/ephemeral
+        ansible_user: edge
+        hostname: edge-device
+
+- name: Additional Edge Device Configuration
+  become: yes
+  hosts: edge-device
+  tasks:
+    - name: Enable 8080/tcp on Firewall
+      ansible.posix.firewalld:
+        permanent: true
+        port: 8080/tcp
+        state: enabled
+
+    - name: Deploy Meat Helper systemd Unit File
+      ansible.builtin.copy:
+        content: "{{ lookup('ansible.builtin.file', 'files/meat-helper.service') }}"
+        dest: /etc/systemd/system/meat-helper.service
+
+    - name: Enable Meat Helper Service
+      ansible.builtin.file:
+        dest: /etc/systemd/system/multi-user.target.wants/meat-helper.service
+        src: /etc/systemd/system/meat-helper.service
+        state: link
+
+    - name: Start Meat Helper Service
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: meat-helper
+        state: started
+
+    - name: Remove Ephemeral Public Key from authorized_keys File
+      ansible.posix.authorized_key:
+        key: "{{ hostvars['localhost']['ephemeral_public_key'] }}"
+        manage_dir: false
+        state: absent
+        user: edge
